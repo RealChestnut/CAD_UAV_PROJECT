@@ -37,14 +37,14 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include "nav_msgs/Odometry.h"
 
-//----------FOR GROUND STATION---------------//
+//----------FOR GROUND STATION-------------//
 #include "FAC_MAV/ArmService.h" //ASDF
 #include "FAC_MAV/KillService.h" //ASDF
 #include "FAC_MAV/PosCtrlService.h" //ASDF
 #include "FAC_MAV/HoverService.h" //ASDF
 #include "FAC_MAV/FAC_HoverService.h" //ASDF
 
-//-------------------------------------------//
+//-----------------------------------------//
 
 class cad_agent_control_loop
 {
@@ -54,7 +54,9 @@ class cad_agent_control_loop
   
   //-----changable data-----//
   void UpdateParameter();
-  
+
+  //-----Init Publisher Data-----//
+  void initPublisher(); 
   
 private:
 
@@ -76,14 +78,40 @@ void initParameter();
 /*****************************************************************************
 ** ROS Subscribers, Callback Functions and Relevant Functions
 *****************************************************************************/
+//Publisher Group--------------------------------------
+ros::Publisher PWMs; // PWM data logging
+ros::Publisher PWM_generator; // To ros-pwm-generator node
 
-ros::Subscriber dynamixel_state;
-ros::Subscriber att;
-ros::Subscriber rc_in;
-ros::Subscriber battery_checker;
-ros::Subscriber t265_pos;
-ros::Subscriber t265_rot;
-ros::Subscriber t265_odom;
+ros::Publisher goal_dynamixel_position_; // To dynamixel position && servo data logging
+
+ros::Publisher Forces; // Final Thrust data logging
+
+ros::Publisher desired_force; 
+ros::Publisher desired_torque; 
+
+ros::Publisher angular_Acceleration; 
+ros::Publisher linear_acceleration; 
+
+ros::Publisher linear_velocity;
+ros::Publisher desired_velocity;
+ros::Publisher angular_velocity;
+
+ros::Publisher desired_position;
+ros::Publisher position;
+
+ros::Publisher euler; // euler angle data logging
+ros::Publisher desired_angle // desired angle data logging
+
+ros::Publisher battery_voltage;
+ros::Publisher delta_time;
+
+ros::Subscriber dynamixel_state; // servo angle data callback
+ros::Subscriber att; // imu data callback
+ros::Subscriber rc_in; //Sbus signal callback from Arduino
+ros::Subscriber battery_checker; // battery level callback from Arduino 
+ros::Subscriber t265_pos; // position data callback from T265 
+ros::Subscriber t265_rot; // angle data callback from T265
+ros::Subscriber t265_odom; // odometry data (linear velocity) callback from T265 
 
 void jointstateCallback(const sensor_msgs::JointState& msg);
 void imu_Callback(const sensor_msgs::Imu& msg);
