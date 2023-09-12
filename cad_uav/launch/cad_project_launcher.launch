@@ -1,0 +1,6 @@
+<launch>
+
+
+ <node name="cad_uav_node"  pkg="cad_uav" type="cad_uav"  output="screen"/>
+
+</launch> 
