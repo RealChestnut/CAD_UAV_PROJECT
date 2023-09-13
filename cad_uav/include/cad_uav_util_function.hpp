@@ -1,34 +1,4 @@
-#include <vector>
-#include <ros/ros.h>
-#include <iostream>
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Dense>
-#include <std_msgs/String.h>
-#include <cmath>
-#include <cstdio>
-#include <chrono>
-
-#include <sensor_msgs/JointState.h>
-#include <sensor_msgs/Imu.h>
-#include <trajectory_msgs/JointTrajectory.h>
-
-#include <std_msgs/MultiArrayLayout.h>
-#include <std_msgs/MultiArrayDimension.h>
-#include <std_msgs/Int16MultiArray.h>
-#include <std_msgs/Int16.h>
-#include <std_msgs/Int32MultiArray.h>
-#include <std_msgs/Float32MultiArray.h>
-#include <std_msgs/Float32.h>
-
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/Transform.h>
-
-#include "tf/transform_datatypes.h"
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2_msgs/TFMessage.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include "nav_msgs/Odometry.h"
+#include "cad_uav_controller.hpp"
 
 std_msgs::Int16MultiArray PWMs_cmd;
 std_msgs::Int32MultiArray PWMs_val;

@@ -37,7 +37,6 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 #include "nav_msgs/Odometry.h"
 
-#include "cad_util_function.hpp"
 
 //----------FOR GROUND STATION-------------//
 /*
@@ -59,6 +58,7 @@ public:
 //////////////////////////////
 // Parameter Initialization //
 //////////////////////////////
+
 
 double freq=200;//controller loop frequency
 
@@ -126,8 +126,9 @@ bool tilt_mode = false;
 bool mono_flight_mode;
 bool combined_flight_mode = false;
 
-
-
+//Timer class :: c++11
+std::chrono::high_resolution_clock::time_point end=std::chrono::high_resolution_clock::now();
+std::chrono::high_resolution_clock::time_point start=std::chrono::high_resolution_clock::now();
 
 //Thruster_cmd
 double F1 = 0;//desired propeller 1 force
@@ -209,19 +210,6 @@ double xi = 0.01;//F_i=k*(omega_i)^2, M_i=b*(omega_i)^2
 
 double pi = 3.141592;//(rad)
 double g = 9.80665;//(m/s^2)
-
-double rp_limit = 0.25;//(rad)
-double y_vel_limit = 0.01;//(rad/s)
-double y_d_tangent_deadzone = (double)0.05 * y_vel_limit;//(rad/s)
-double T_limit = 80;//(N)
-double altitude_limit = 1;//(m)
-double XY_limit = 1.0;
-double XYZ_dot_limit=1;
-double XYZ_ddot_limit=2;
-double alpha_beta_limit=1;
-double hardware_servo_limit=0.3;
-double servo_command_limit = 0.3;
-double tau_y_limit = 1.0;
 
 //Body desired force limit
 double F_xd_limit = mass*2.0;
@@ -337,7 +325,8 @@ int toggle_sub2 = 0;
 // Init Functions //
 ////////////////////
 
-void initParameter();
+
+//void initParameter();
 void initSubscriber();
 void initPublisher();
 
@@ -360,8 +349,8 @@ void shape_detector();
 void UpdateParameter();
 void attitude_DOB();
 void K_matrix();
-double Force_to_PWM(double F);
-void callback(const ros::TimerEvent& event);
+void Clock();
+void callback(const ros::TimerEvent& event); // not used
 
 
 //------------------------------------------------------------//
@@ -372,7 +361,7 @@ private:
 // ROS NodeHandle // 
 ////////////////////
 
-ros::NodeHandle node_handle_;
+ros::NodeHandle nh_;
 ros::NodeHandle priv_node_handle_;
 
 ////////////////////
@@ -383,7 +372,7 @@ ros::NodeHandle priv_node_handle_;
 //Eigen::MatrixXd invCM_Xc_p2(4,4);
 
 
-
+/*
 Eigen::MatrixXd setCM_Xc_p2(Eigen::VectorXd theta, Eigen::Vector3d CoM)
 {
 
@@ -446,7 +435,7 @@ Eigen::MatrixXd setSA(Eigen::VectorXd F)
 	
 	return invSA;
 }
-
+*/
 Eigen::Matrix3d W2B_rot;
 
 
@@ -488,7 +477,7 @@ ros::Subscriber rc_in; //Sbus signal callback from Arduino
 ros::Subscriber battery_checker; // battery level callback from Arduino 
 ros::Subscriber t265_position; // position data callback from T265 
 ros::Subscriber t265_rot; // angle data callback from T265
-ros::Subscriber t265_odom; // odometry data (linear velocity) callback from T265 
+ros::Subscriber t265_odom; // odometry data (linear velocity) callback from T265
 
 void jointstate_Callback(const sensor_msgs::JointState& msg);
 void imu_Callback(const sensor_msgs::Imu& msg);
