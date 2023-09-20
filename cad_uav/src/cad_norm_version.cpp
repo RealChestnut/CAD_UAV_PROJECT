@@ -1,39 +1,8 @@
 
-
-#include <vector>
-#include <ros/ros.h>
-#include <iostream>
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Dense>
-#include <std_msgs/String.h>
-#include <cmath>
-#include <cstdio>
-#include <chrono>
-
-#include <sensor_msgs/JointState.h>
-#include <sensor_msgs/Imu.h>
-#include <trajectory_msgs/JointTrajectory.h>
-
-#include <std_msgs/MultiArrayLayout.h>
-#include <std_msgs/MultiArrayDimension.h>
-#include <std_msgs/Int16MultiArray.h>
-#include <std_msgs/Int16.h>
-#include <std_msgs/Int32MultiArray.h>
-#include <std_msgs/Float32MultiArray.h>
-#include <std_msgs/Float32.h>
-
-#include <geometry_msgs/TransformStamped.h>
-#include <geometry_msgs/Transform.h>
-
-#include "tf/transform_datatypes.h"
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2_msgs/TFMessage.h>
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/static_transform_broadcaster.h>
-#include "nav_msgs/Odometry.h"
-
 #include "cad_uav_controller.hpp"
 
+//직접 계산에 사용하는 변수는 이름을 축약해서
+//퍼를리쉬 하기 위해 선언한 변수는 길게
 
 int main(int argc, char **argv)
 {
@@ -43,7 +12,7 @@ int main(int argc, char **argv)
 
   //initialize ros node//
   //initSubscriber();
-  
+
     /////////////////////////////////////////////////SUBSCFRIBER START//////////////////////////////////////////////////////
     dynamixel_state = nh.subscribe("joint_states",100,jointstate_Callback, ros::TransportHints().tcpNoDelay());
     att = nh.subscribe("/imu/data",1,imu_Callback,ros::TransportHints().tcpNoDelay());
@@ -68,16 +37,17 @@ int main(int argc, char **argv)
     linear_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel",100);
     desired_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel_d",100);
 
-    angular_velocity = nh.advertise<geometry_msgs::Vector3>("gyro",100);
+    angular_velocity = nh.advertise<geometry_msgs::Vector3>("ang_vel",100);
 
-    desired_position = nh.advertise<geometry_msgs::Vector3>("pos_d",100);
-    position = nh.advertise<geometry_msgs::Vector3>("pos",100);
+    desired_position = nh.advertise<geometry_msgs::Vector3>("position_d",100);
+    position = nh.advertise<geometry_msgs::Vector3>("position",100);
 
     desired_force = nh.advertise<geometry_msgs::Vector3>("force_d",100);
 
     battery_voltage = nh.advertise<std_msgs::Float32>("battery_voltage",100);
     delta_time = nh.advertise<std_msgs::Float32>("delta_t",100);
 
+    ToSubAgent = nh.advertise<std_msgs::String>("ToSubData",1);
 
  
   ros::Rate loop_rate(200);
@@ -85,9 +55,13 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
     Clock();
+    if(true/*!kill_mode*/)
+    {
     shape_detector();
-    UpdateParameter();
-    if(){
+    UpdateParameter(); 
+    //setMoI,pid_Gain_Setting, etc.
+
+    //if(){
     Command_Generator();
     attitude_controller();
     position_controller();
@@ -95,11 +69,20 @@ int main(int argc, char **argv)
 
     Accelerometer_LPF();
     velocity_controller();
-    
-    setCM_Xc_p2();
     K_matrix();
+    wrench_allocation();
+    yaw_torque_distribute();
 
-    PWM_signal_Generator();
+    PWM_signal_Generator(); 
+    //contain :: setCM,setSA, etc
+    //}
+    }
+    else
+    {
+      
+      reset_data();
+      pwm_Kill();
+      
     }
 
 
@@ -107,6 +90,7 @@ int main(int argc, char **argv)
     ros::spinOnce();
     loop_rate.sleep();
   }
+
 
   return 0;
 }

@@ -1,4 +1,37 @@
-#include "cad_uav_controller.hpp"
+#include <vector>
+#include <ros/ros.h>
+#include <iostream>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
+#include <std_msgs/String.h>
+#include <cmath>
+#include <cstdio>
+#include <chrono>
+
+#include <sensor_msgs/JointState.h>
+#include <sensor_msgs/Imu.h>
+#include <trajectory_msgs/JointTrajectory.h>
+
+#include <std_msgs/MultiArrayLayout.h>
+#include <std_msgs/MultiArrayDimension.h>
+#include <std_msgs/Int16MultiArray.h>
+#include <std_msgs/Int16.h>
+#include <std_msgs/Int32MultiArray.h>
+#include <std_msgs/Float32MultiArray.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Float64MultiArray.h>
+#include <std_msgs/Float64.h>
+
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Transform.h>
+
+#include "tf/transform_datatypes.h"
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_msgs/TFMessage.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include "nav_msgs/Odometry.h"
+
 
 std_msgs::Int16MultiArray PWMs_cmd;
 std_msgs::Int32MultiArray PWMs_val;
@@ -125,4 +158,25 @@ double Force_to_PWM(double F) {
 	if (pwm > 1900)	pwm = 1900;
 	if(pwm < 1100) pwm = 1100;
 	return pwm;
+}
+
+sensor_msgs::JointState servo_msg_create(double desired_theta1, double desired_theta2, double desired_theta3, double desired_theta4){
+	sensor_msgs::JointState servo_msg;
+
+	servo_msg.header.stamp=ros::Time::now();
+
+	servo_msg.name.resize(4);
+	servo_msg.name[0]="id_1";
+	servo_msg.name[1]="id_2";
+	servo_msg.name[2]="id_3";
+	servo_msg.name[3]="id_4";
+
+
+	servo_msg.position.resize(4);
+	servo_msg.position[0]=desired_theta1;
+	servo_msg.position[1]=desired_theta2;
+	servo_msg.position[2]=desired_theta3;
+	servo_msg.position[3]=desired_theta4;
+	//ROS_INFO("rr: %lf, rp: %lf",rr,rp);
+	return servo_msg;
 }
