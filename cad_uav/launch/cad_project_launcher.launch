@@ -3,4 +3,12 @@
 
  <node name="cad_uav_node"  pkg="cad_uav" type="cad_uav"  output="screen"/>
 
+ <node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/>
+<?ignore
+ <!-- rosserial_arduino -->
+<node pkg="rosserial_arduino" type="serial_node.py" name="ros_arduino_Switch" >
+<param name="port" value="/dev/ttyACM0"/>
+    <param name="baud" value="57600"/>
+</node> ?>
+
 </launch> 

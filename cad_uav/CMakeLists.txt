@@ -158,7 +158,7 @@ include_directories(
 
 
 add_executable(cad_uav src/cad_norm_version.cpp)
-
+add_executable(cad_uav_2 src/cad_norm_version_2.cpp)
 #add_executable(cad_norm_version_class src/cad_norm_version_class.cpp)
 
 ## Rename C++ executable without prefix
@@ -173,11 +173,18 @@ add_executable(cad_uav src/cad_norm_version.cpp)
 ## Specify libraries to link a library or executable target against
 
 add_dependencies(cad_uav ${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(cad_uav_2 ${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 target_link_libraries(cad_uav
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
   #src/cad_norm_version_class.cpp
+)
+
+target_link_libraries(cad_uav_2
+  ${catkin_LIBRARIES}
+  ${Eigen_LIBRARIES}
 )
 
 #############
