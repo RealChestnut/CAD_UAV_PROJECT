@@ -56,16 +56,16 @@ double g = 9.80665;// gravity acceleration (m/s^2)
 
 
 ///// Original MoI /////
-double Jxx = 1.23;//6.75;
-double Jyy = 1.23;//1.71;
-double Jzz = 1.50;//5.53;
+double Jxx = 1.17;//1.23;//6.75;
+double Jyy = 0.208;//1.23;//1.71;
+double Jzz = 1.17; //1.50;//5.53;
 /////////////////////////////
 
 //////// limitation value ////////
 double rp_limit = 0.25;// roll pitch angle limit (rad)
 double y_vel_limit = 0.01;// yaw angle velocity limit (rad/s)
 double y_d_tangent_deadzone = (double)0.05 * y_vel_limit;//(rad/s)
-double T_limit = 80;// thrust limit (N)
+double T_limit = 80;// thrust limit (N) :: mass*g
 double altitude_limit = 1;// z direction limit (m)
 double XY_limit = 1.0; // position limit
 double XYZ_dot_limit=1; // linear velocity limit
@@ -181,7 +181,8 @@ ros::Publisher desired_motor_thrust;
 
 ros::Publisher desired_force; 
 ros::Publisher desired_torque; 
-ros::Publisher desired_torque_split;
+ros::Publisher desired_splited_yaw_torque; //23.10.05
+ros::Publisher torque_dhat_pub; // 23.10.09
 
 ros::Publisher angular_Acceleration; 
 ros::Publisher linear_acceleration; 
@@ -368,12 +369,40 @@ T map(T x, T in_min, T in_max, T out_min, T out_max){
 
 void sbus_Callback(const std_msgs::Int16MultiArray::ConstPtr& array)
 {
+  // sbus를 사용하지 않는 경우 이 함수는 mode change에 영향을 미침
+  // 서브드론의 경우 당장은 사용하지 않으면 callback함수가 작동하지 않도록 조취해야함
+
     for(int i=0;i<10;i++){
 		Sbus[i]=map<int16_t>(array->data[i], 352, 1696, 1000, 2000);
 	}
 	
-	if(Sbus[4]<1500) kill_mode=true;
-	else kill_mode=false;
+	if(Sbus[4]<1500) {
+		kill_mode=true;
+		tilt_mode=false;
+	}
+	else {
+		kill_mode=false;
+		tilt_mode=true;
+	}
+	
+	if(Sbus[5]>1500) altitude_mode=true;
+	else altitude_mode=false;
+
+	if(Sbus[6]<1300){
+		attitude_mode=true;
+		velocity_mode=false;
+		position_mode=false;
+	}
+	else if(Sbus[6]<1700){
+		attitude_mode=false;
+		velocity_mode=true;
+		position_mode=false;
+	}
+	else{
+		attitude_mode=false;
+		velocity_mode=false;
+		position_mode=true;
+	}
 }
 
 //POSITION DATA CALLBACK//
@@ -405,6 +434,37 @@ void battery_Callback(const std_msgs::Int16& msg)
     battery_voltage_msg.data=voltage;
 }
 
+double Force_to_PWM(double F){
+	
+	double pwm;
+	double A = -8.1332*pow(10.0,-8.0)*pow(voltage,2.0)+5.5525*pow(10.0,-6.0)*voltage-4.5119*pow(10.0,-5.0);
+	double B = 0.00014354*pow(voltage,2.0)-0.0087694*voltage+0.065575;
+	double C = -0.028531*pow(voltage,2.0)+1.7194*voltage-6.2575;
+	/*
+	double param1 = 710;//-B/(2.0*A);
+	double param2 = 0.00016;//1.0/A;
+	double param3 = 0.00041888;//(pow(B,2.0)-4*A*C)/(4*pow(A,2.0));
+	double param4 = 0.00008;
+	*/
+
+	double param1 = -B/(2.0*A);
+	double param2 = 1.0/A;
+	double param3 = (pow(B,2.0)-4*A*C)/(4*pow(A,2.0));
+	//	double param4 = 0.00008;
+	//Force=A*pwm^2+B*pwm+C
+	// A = 0.00004 / B = -0.0568 / C = 17.546 
+
+	if(param2*F+param3>0){
+		pwm = param1 + sqrt(param2 * F + param3);
+		// ROS_INFO("%lf",pwm);
+	}
+	else pwm = 1100.;
+	if (pwm > 1900)	pwm = 1900;
+	if(pwm < 1100) pwm = 1100;
+
+	return pwm;
+}
+
 // ARDUINO SWITCH DATA CALLBACK //
 bool switch_toggle_from_ardu;
 void switch_Callback(const std_msgs::UInt16& msg)
@@ -431,12 +491,12 @@ void main2sub_data_Callback(const std_msgs::Float32MultiArray& msg)
 
 ///////////////////////////////CONSTROLLER START////////////////////////////////////////////
 
-int module_num=1;
+int module_num=0;
 bool mono_flight = true;
 int button_cnt=0;
 bool main_agent=true;
 bool sub_agent=false;
-double servo_90rot=90.0;
+double servo_90rot=1.5708; //90deg
 void shape_detector()
 {
 
@@ -450,22 +510,18 @@ void shape_detector()
   //Eigen3
 
   /////// button data toggling ////////
-  if(switch_toggle_from_ardu){
-    if(button_cnt==0){
-      button_cnt=1;} 
+
+  if(switch_toggle_from_ardu==1){
+    servo_90rot=0.0;
   }
-  if(!switch_toggle_from_ardu){
-    if(button_cnt!=0){
-      button_cnt=0;}
-  }
-  ////////////////////////////////////
-  if(button_cnt==1){
-    servo_90rot=90;
+  if(switch_toggle_from_ardu==0){
+    servo_90rot=1.5708;
   }
 
+  /////////////////////////////////////
   
 
-  module_num=1;
+  
 
 }
 
@@ -574,7 +630,8 @@ void UpdateParameter()
                 X_c_p1 << 0,0,0;
                 X_c_p2 << CoM_hat.x,CoM_hat.y,CoM_hat.z;
                 toggle_sub1=0;
-                toggle_sub2=0;               
+                toggle_sub2=0;
+                module_num=1;
 
   }
   else if(num==2){
@@ -590,6 +647,7 @@ void UpdateParameter()
                 X_c_p2 << CoM_hat.x, 0, CoM_hat.z;
                 toggle_sub1=1;
                 toggle_sub2=0;
+                module_num =2;
 
   }
   else if(num==3){
@@ -603,6 +661,7 @@ void UpdateParameter()
                 X_c_p2 << 0,0,0;
                 toggle_sub1=1;
                 toggle_sub2=1;
+                module_num=3;
   }
   // Data (combinated with other data)
   F_xd_limit=mass_system*2;
@@ -650,11 +709,11 @@ void Command_Generator()
 
   
 
-  if(true)
+  if(true/*sbus_mode*/)
   {
     /////////// angle command /////////////
-    rpy_desired.x = sin(delta_t.count());//0.0;
-    rpy_desired.y = sin(delta_t.count());//0.0;
+    rpy_desired.x = 0.0; //sin(delta_t.count()); 23.10.05
+    rpy_desired.y = 0.0; //sin(delta_t.count());
     y_d_tangent=y_vel_limit*(((double)Sbus[0]-(double)1500)/(double)500);
     if(fabs(y_d_tangent)<y_d_tangent_deadzone || fabs(y_d_tangent)>y_vel_limit) y_d_tangent=0;
     rpy_desired.z+=y_d_tangent;
@@ -665,15 +724,20 @@ void Command_Generator()
     XYZ_desired.x = XYZ_desired_base.x - XY_limit*(((double)Sbus[1]-(double)1500)/(double)500);
     XYZ_desired.y = XYZ_desired_base.y + XY_limit*(((double)Sbus[3]-(double)1500)/(double)500);
     
-    if(Sbus[2]>1800){
-			XYZ_desired.z-=0.0005;
-		}
-		else if(Sbus[2]<1200){
-			XYZ_desired.z+=0.0005;
-		}
-			
-		if(XYZ_desired.z <-0.7) XYZ_desired.z=-0.7;
-		if(XYZ_desired.z > 0) XYZ_desired.z=0;
+   if(altitude_mode){ 
+      if(Sbus[2]>1800){
+        XYZ_desired.z-=0.0005;
+      }
+      else if(Sbus[2]<1200){
+        XYZ_desired.z+=0.0005;
+      }
+        
+      if(XYZ_desired.z <-0.7) XYZ_desired.z=-0.7;
+      if(XYZ_desired.z > 0) XYZ_desired.z=0;
+    }
+    else{
+		T_d = -T_limit*(((double)Sbus[2]-(double)1500)/(double)500)-T_limit;
+	}
   }
   
   if(false/*ground station*/)
@@ -784,6 +848,121 @@ void attitude_controller()
 
 }
 
+////////////// torque DOB /////////////////
+
+Eigen::MatrixXd MinvQ_T_A(2,2);
+Eigen::MatrixXd MinvQ_T_B(2,1);
+
+Eigen::MatrixXd MinvQ_T_C_x(1,2);
+Eigen::MatrixXd MinvQ_T_C_y(1,2);
+Eigen::MatrixXd MinvQ_T_C_z(1,2);
+
+Eigen::MatrixXd Q_T_A(2,2);
+Eigen::MatrixXd Q_T_B(2,1);
+Eigen::MatrixXd Q_T_C(1,2);
+
+Eigen::MatrixXd MinvQ_T_X_x(2,1);
+Eigen::MatrixXd MinvQ_T_X_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_X_y(1,1);
+Eigen::MatrixXd Q_T_X_x(2,1);
+Eigen::MatrixXd Q_T_X_x_dot(2,1);
+Eigen::MatrixXd Q_T_X_y(1,1);
+
+Eigen::MatrixXd MinvQ_T_Y_x(2,1);
+Eigen::MatrixXd MinvQ_T_Y_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_Y_y(1,1);
+Eigen::MatrixXd Q_T_Y_x(2,1);
+Eigen::MatrixXd Q_T_Y_x_dot(2,1);
+Eigen::MatrixXd Q_T_Y_y(1,1);
+
+Eigen::MatrixXd MinvQ_T_Z_x(2,1);
+Eigen::MatrixXd MinvQ_T_Z_x_dot(2,1);
+Eigen::MatrixXd MinvQ_T_Z_y(1,1);
+Eigen::MatrixXd Q_T_Z_x(2,1);
+Eigen::MatrixXd Q_T_Z_x_dot(2,1);
+Eigen::MatrixXd Q_T_Z_y(1,1);
+
+double torque_dob_fc = 0.5;
+double dhat_tau_r = 0;
+double dhat_tau_p = 0;
+double dhat_tau_y = 0;
+geometry_msgs::Vector3 torque_dhat;
+double tautilde_r_d =0;
+double tautilde_p_d =0;
+double tautilde_y_d =0;
+
+
+void torque_DOB()
+{
+  
+  double tau_r=tau_rpy_desired.x;
+  double tau_p=tau_rpy_desired.y;
+  double tau_y=tau_rpy_desired.z;
+  
+  //------------------Torque DoB Q filter----------------------
+  Q_T_A << -r2*torque_dob_fc, -pow(torque_dob_fc,2),
+                          1.0,                   0.0;
+
+  Q_T_B << 1.0, 0.0;
+
+  Q_T_C << 0.0,  pow(torque_dob_fc,2);
+
+  MinvQ_T_A <<  -r2*torque_dob_fc, -pow(torque_dob_fc,2),
+                              1.0,                   0.0;
+
+  MinvQ_T_B << 1.0, 0.0;
+
+  MinvQ_T_C_x << Jxx*pow(torque_dob_fc,2),                                0.0;
+  MinvQ_T_C_y << Jyy*pow(torque_dob_fc,2),                                0.0;
+  MinvQ_T_C_z << Jzz*pow(torque_dob_fc,2),                                0.0;
+
+
+
+  MinvQ_T_X_x_dot=MinvQ_T_A*MinvQ_T_X_x+MinvQ_T_B*imu_ang_vel.x;
+	MinvQ_T_X_x+=MinvQ_T_X_x_dot*delta_t.count();
+	MinvQ_T_X_y=MinvQ_T_C_x*MinvQ_T_X_x;
+	
+	Q_T_X_x_dot=Q_T_A*Q_T_X_x+Q_T_B*tautilde_r_d;
+	Q_T_X_x+=Q_T_X_x_dot*delta_t.count();
+	Q_T_X_y=Q_T_C*Q_T_X_x;
+
+	dhat_tau_r=(MinvQ_T_X_y(0)-Q_T_X_y(0));
+
+	MinvQ_T_Y_x_dot=MinvQ_T_A*MinvQ_T_Y_x+MinvQ_T_B*imu_ang_vel.y;
+	MinvQ_T_Y_x+=MinvQ_T_Y_x_dot*delta_t.count();
+	MinvQ_T_Y_y=MinvQ_T_C_y*MinvQ_T_Y_x;
+	
+	Q_T_Y_x_dot=Q_T_A*Q_T_Y_x+Q_T_B*tautilde_p_d;
+	Q_T_Y_x+=Q_T_Y_x_dot*delta_t.count();
+	Q_T_Y_y=Q_T_C*Q_T_Y_x;
+
+	dhat_tau_p=(MinvQ_T_Y_y(0)-Q_T_Y_y(0));
+
+  MinvQ_T_Z_x_dot=MinvQ_T_A*MinvQ_T_Z_x+MinvQ_T_B*imu_ang_vel.z;
+  MinvQ_T_Z_x+=MinvQ_T_Z_x_dot*delta_t.count();
+  MinvQ_T_Z_y=MinvQ_T_C_z*MinvQ_T_Z_x;
+
+  Q_T_Z_x_dot=Q_T_A*Q_T_Z_x+Q_T_B*tautilde_y_d;
+  Q_T_Z_x+=Q_T_Z_x_dot*delta_t.count();
+  Q_T_Z_y=Q_T_C*Q_T_Z_x;
+
+  dhat_tau_y=(MinvQ_T_Z_y(0)-Q_T_Z_y(0));
+
+
+  tautilde_r_d = tau_r - dhat_tau_r;
+  tautilde_p_d = tau_p - dhat_tau_p;
+  tautilde_y_d = tau_y - dhat_tau_y;
+
+  tau_rpy_desired.x = tautilde_r_d;
+  tau_rpy_desired.y = tautilde_p_d;
+  tau_rpy_desired.z = tautilde_y_d;
+
+	torque_dhat.x=dhat_tau_r;
+	torque_dhat.y=dhat_tau_p;
+	torque_dhat.z=dhat_tau_y;
+}
+
+
 geometry_msgs::Vector3 lin_vel_desired;
 void position_controller()
 {
@@ -846,8 +1025,8 @@ void velocity_controller()
   if(fabs(F_xd) > F_xd_limit) F_xd = (F_xd/fabs(F_xd))*F_xd_limit;
   if(fabs(F_yd) > F_yd_limit) F_yd = (F_yd/fabs(F_yd))*F_yd_limit;
 
-  F_xd = F_xyzd.x;
-  F_yd = F_xyzd.y;
+  F_xyzd.x=F_xd; //23.10.05
+  F_xyzd.y=F_yd; 
 
 }
 
@@ -926,6 +1105,7 @@ void wrench_allocation()
   double Fy=0;
   double Fz=0;
   
+  if(!mono_flight){
   //////////// torque distribute ////////////
   tau_r = tau_rpy_desired.x/module_num;
   tau_p = tau_rpy_desired.y/module_num;
@@ -936,7 +1116,7 @@ void wrench_allocation()
   tau_rpy_desired.z = tau_y;
   
   //////////// force distribute ////////////
-  if(!mono_flight){
+  
   F_xyzd_sub1.x = F_xyzd.x*allocation_factor(1);
   F_xyzd_sub1.y = F_xyzd.y*allocation_factor(1);
   F_xyzd_sub1.z = F_xyzd.z*allocation_factor(1);
@@ -945,25 +1125,33 @@ void wrench_allocation()
   Fy = F_xyzd.y*allocation_factor(0);
   Fz = F_xyzd.z*allocation_factor(0);
 
-  F_xyzd.x = 0;
-  F_xyzd.y = 0;
-  F_xyzd.z = 0;
+  F_xyzd.x = Fx; //23.10.05
+  F_xyzd.y = Fy;
+  F_xyzd.z = Fz;
   }
 }
 
+std_msgs::Float32MultiArray distributed_yaw_torque; // 23.10.05
 void yaw_torque_distribute()
 {
-  tau_y_d_non_sat=tau_rpy_desired.z;
+  //tau_y_d_non_sat=tau_rpy_desired.z;
+  
+  double tau_y_d_sat=0.0; //23.10.05
+
   if(fabs(tau_rpy_desired.z) > tau_y_limit)
   {
-     tau_rpy_desired.z = tau_rpy_desired.z/fabs(tau_rpy_desired.z)*tau_y_limit;
+     tau_y_d_sat = tau_rpy_desired.z/fabs(tau_rpy_desired.z)*tau_y_limit;
   }
 
-  if((abs(tau_rpy_desired.z)-tau_y_limit)==0)
+  if((abs(tau_y_d_sat)-tau_y_limit)==0)
   {
-	tau_y_th = tau_y_d_non_sat-tau_rpy_desired.z;
+	tau_y_th = tau_rpy_desired.z-tau_y_d_sat;
 	if(fabs(tau_y_th) > tau_y_th_limit) tau_y_th = (tau_y_th/fabs(tau_y_th))*tau_y_th_limit;//2023.08.17 update
   }
+  
+  distributed_yaw_torque.data.resize(2);
+  distributed_yaw_torque.data[0]= tau_y_d_sat; //23.10.05
+  distributed_yaw_torque.data[1]= tau_y_th;
 }
 
 
@@ -1143,6 +1331,8 @@ void PublishData()
   euler.publish(imu_rpy);//rpy_act value
   desired_angle.publish(rpy_desired);//rpy_d value
   desired_torque.publish(tau_rpy_desired); // torque desired
+  torque_dhat_pub.publish(torque_dhat); // torque disturbance 23.10.09
+  desired_splited_yaw_torque.publish(distributed_yaw_torque); // splited yaw torque desired 23.10.05
 	
   position.publish(position_from_t265); // actual position
   desired_position.publish(XYZ_desired);//desired position 
@@ -1166,11 +1356,18 @@ void reset_data()
 {
 
   rpy_desired.z=t265_att.z;	//[J]This line ensures that yaw desired right after disabling the kill switch becomes current yaw attitude
-  //initial_z=position_from_t265.x;
+
+  
   e_r_i = 0;
   e_p_i = 0;
   e_Z_i = 0;
+  e_Z_dot_i=0;
   e_X_i=0;
-  e_y_i=0;
-  
+  e_X_dot_i=0;
+  e_Y_i=0;
+  e_Y_dot_i=0;
+  theta1_command=0.0;
+  theta2_command=0.0;
+  theta3_command=0.0;
+  theta4_command=0.0;
 }

@@ -82,7 +82,7 @@ int main (int argc, char** argv){
     ros::NodeHandle nh;
 
     ros::Subscriber write_sub = nh.subscribe("write", 1000, write_callback);
-    ros::Publisher read_pub_from_main = nh.advertise<std_msgs::Float32MultiArray>("read", 1);
+    ros::Publisher read_pub_from_main = nh.advertise<std_msgs::Float32MultiArray>("read_serial_magnetic", 1);
 
     try
     {

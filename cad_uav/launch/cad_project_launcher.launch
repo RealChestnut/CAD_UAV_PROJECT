@@ -1,14 +1,27 @@
 <launch>
 
 
+ <!-- Dynamixel Workbench Controller -->
+<include file="$(find dynamixel_workbench_controllers)/launch/position_control.launch">
+<arg name="device_name"        		default="/dev/ttyUSB0"/>
+<arg name="baud_rate"   		default="4500000"/>
+<arg name="profile_velocity"		default="0"/>
+<arg name="profile_acceleration"	default="0"/>
+<arg name="position_p_gain"		default="1700"/>
+<arg name="position_i_gain"		default="500"/>
+<arg name="position_d_gain"		default="300"/>
+<arg name="scan_range"        default="40"/>
+</include> 
+
  <node name="cad_uav_node"  pkg="cad_uav" type="cad_uav"  output="screen"/>
 
- <node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/>
+ <node pkg="data_logging" name="data_logging_node" type="data_logging"/>
+
 <?ignore
+ <node pkg="serial_module" type="serial_magnetic_node" name="serial_magnetic_module"/> ?>
  <!-- rosserial_arduino -->
 <node pkg="rosserial_arduino" type="serial_node.py" name="ros_arduino_Switch" >
 <param name="port" value="/dev/ttyACM0"/>
     <param name="baud" value="57600"/>
-</node> ?>
-
+</node>
 </launch> 

@@ -19,6 +19,8 @@ include_directories(
 
 add_executable(serial_magnetic_node src/serial_magnetic_node.cpp)
 
+#serial_magnetic_sub_new_node.cpp
+
 target_link_libraries(serial_magnetic_node
   ${catkin_LIBRARIES}
 )

@@ -56,31 +56,33 @@ int main(int argc, char **argv)
   //initSubscriber();
 
     /////////////////////////////////////////////////SUBSCFRIBER START//////////////////////////////////////////////////////
-    dynamixel_state = nh.subscribe("joint_states",100,jointstate_Callback, ros::TransportHints().tcpNoDelay());
-    att = nh.subscribe("/imu/data",1,imu_Callback,ros::TransportHints().tcpNoDelay());
-    rc_in = nh.subscribe("/sbus",100,sbus_Callback,ros::TransportHints().tcpNoDelay());
-    battery_checker = nh.subscribe("/battery",100,battery_Callback,ros::TransportHints().tcpNoDelay());
-    Switch_checker = nh.subscribe("switch_onoff",1,switch_Callback,ros::TransportHints().tcpNoDelay());
+    dynamixel_state = nh.subscribe("joint_states",100,jointstate_Callback, ros::TransportHints().tcpNoDelay()); // servo angle data from dynamixel
+    att = nh.subscribe("/imu/data",1,imu_Callback,ros::TransportHints().tcpNoDelay()); // angle data from IMU
+    rc_in = nh.subscribe("/sbus",100,sbus_Callback,ros::TransportHints().tcpNoDelay()); // sbus data from arduino
+    battery_checker = nh.subscribe("/battery",100,battery_Callback,ros::TransportHints().tcpNoDelay()); // battery sensor data from arduino
+    Switch_checker = nh.subscribe("switch_onoff",1,switch_Callback,ros::TransportHints().tcpNoDelay()); // switch interrupt from arduino
 
-    t265_position=nh.subscribe("/t265_pos",100,t265_position_Callback,ros::TransportHints().tcpNoDelay());
-    t265_rotation=nh.subscribe("/t265_rot",100,t265_rotation_Callback,ros::TransportHints().tcpNoDelay());
+    t265_position=nh.subscribe("/t265_pos",100,t265_position_Callback,ros::TransportHints().tcpNoDelay()); // position data from t265
+    t265_rotation=nh.subscribe("/t265_rot",100,t265_rotation_Callback,ros::TransportHints().tcpNoDelay()); // angle data from t265
 
-    t265_odom=nh.subscribe("/rs_t265/odom/sample",100,t265_Odom_Callback,ros::TransportHints().tcpNoDelay());
+    t265_odom=nh.subscribe("/rs_t265/odom/sample",100,t265_Odom_Callback,ros::TransportHints().tcpNoDelay()); // odometry data from t265
 
-    main2sub_data=nh.subscribe("ToSubData",1,main2sub_data_Callback,ros::TransportHints().tcpNoDelay()); // wrench data subscribe
+    main2sub_data=nh.subscribe("read_serial_magnetic",1,main2sub_data_Callback,ros::TransportHints().tcpNoDelay()); // wrench data subscribe
 
     /////////////////////////////////////////////////PUBLISHER START//////////////////////////////////////////////////////
-    PWMs = nh.advertise<std_msgs::Int16MultiArray>("PWMs", 1); 
-    PWM_generator = nh.advertise<std_msgs::Int32MultiArray>("command",1);  // publish to pca9685
-    desired_motor_thrust = nh.advertise<std_msgs::Float32MultiArray>("Forces",100);
+    PWMs = nh.advertise<std_msgs::Int16MultiArray>("PWMs", 1); // generated PWM data for logging
+    PWM_generator = nh.advertise<std_msgs::Int32MultiArray>("command",1);  // generated PWM data for publish to pca9685
+    desired_motor_thrust = nh.advertise<std_msgs::Float32MultiArray>("Forces",100); // generated desired motor force F1,2,3,4
 
-    goal_dynamixel_position  = nh.advertise<sensor_msgs::JointState>("goal_dynamixel_position",100); // desired theta1,2
+    goal_dynamixel_position = nh.advertise<sensor_msgs::JointState>("goal_dynamixel_position",100); // desired servo angle command ::theta 1234
 
-    euler = nh.advertise<geometry_msgs::Vector3>("angle",1); 
-    desired_angle = nh.advertise<geometry_msgs::Vector3>("desired_angle",100);
+    euler = nh.advertise<geometry_msgs::Vector3>("angle",1); // euler angle
+    desired_angle = nh.advertise<geometry_msgs::Vector3>("desired_angle",100); // desired euler angle
 
 
     desired_torque = nh.advertise<geometry_msgs::Vector3>("torque_d",100);
+    torque_dhat_pub = nh.advertise<geometry_msgs::Vector3>("torque_dhat",1); //23.10.09
+    desired_splited_yaw_torque = nh.advertise<std_msgs::Float32MultiArray>("splited_yaw_torque_d",100); // 23.10.05
 
     linear_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel",100);
     desired_velocity = nh.advertise<geometry_msgs::Vector3>("lin_vel_d",100);
@@ -108,16 +110,16 @@ int main(int argc, char **argv)
     
     if(main_agent)
     {
-      if(true) // kill_mode toggle position
+      if(true/*kill_mode*/) // kill_mode toggle position
       {
       shape_detector(); // receiving data from arduino. (switch on off, connector servo rotation)
       UpdateParameter(); // setMoI,pid_Gain_Setting, etc. W.R.T. Combined or NOT
       
 
-      //if(){
       Command_Generator();
       setCM_Xc_p2();
       attitude_controller();
+      torque_DOB(); //23.10.09
       position_controller();
       altitude_controller();
 
@@ -141,8 +143,15 @@ int main(int argc, char **argv)
     
     if(!main_agent)
     {
-      setCM_Xc_p2();
-      PWM_signal_Generator();
+      if(!kill_mode){
+        setCM_Xc_p2();
+        yaw_torque_distribute(); //23.10.05
+        PWM_signal_Generator();
+        }   
+      else{
+        reset_data();
+        pwm_Kill();
+        } 
     }
 
 
