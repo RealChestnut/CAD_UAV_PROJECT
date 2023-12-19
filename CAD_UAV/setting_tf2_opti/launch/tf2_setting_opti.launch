@@ -1,0 +1,10 @@
+<launch>
+    <node pkg="setting_tf2_opti" type="setting_world_tf_opti" name="setting_world_tf_node"/>
+    <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/>
+
+
+   <!-- <node pkg="rosbag" type="record" name="record_bag" output="screen" args="-o /home/songyeongin/catkin_ws2/src/CAD_UAV/setting_tf2_opti/bag/ /Pose_error_data"/> -->
+
+
+
+</launch>

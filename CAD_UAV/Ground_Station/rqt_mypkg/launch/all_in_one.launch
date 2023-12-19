@@ -1,0 +1,11 @@
+<launch>
+    
+    <include file="$(find optitrack)/launch/optitrack.launch">
+ </include>
+    <node pkg="setting_tf2_opti" type="setting_world_tf_opti" name="setting_world_tf_node"/>
+    <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/>
+  <!-- <node pkg="setting_tf2_opti" type="tf_listener" name="pos_listener"/> -->
+  <!--  <node pkg="setting_tf2_opti" type="setting_drone_tf_opti" name="setting_drone_tf_node"/> -->
+    	
+ 
+</launch>  
