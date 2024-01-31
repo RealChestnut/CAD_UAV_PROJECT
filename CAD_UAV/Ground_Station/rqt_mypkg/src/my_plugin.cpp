@@ -13,6 +13,7 @@ bool isHover = false;
 bool isLanding = false;
 bool isApproaching = false;
 
+
 namespace rqt_mypkg_cpp
 {
 
@@ -56,6 +57,9 @@ void MyPlugin::initPlugin(qt_gui_cpp::PluginContext& context)
   ApproachClient = n.serviceClient<rqt_mypkg::ApproachService>("/ApproachService"); // Approach Mode Change ServiceClient
   ManipulatorClient = n.serviceClient<rqt_mypkg::ManipulatorService>("/ManipulatorService"); // Battery change with Manipulator ServiceClient
   //HoverServer = n.advertiseService("/FAC_HoverService", &MyPlugin::FAC_Hover_Callback, this); // Get state from Drone to GUI
+  
+  DockSafetySubscriber = n.subscribe("/DockSafetyPub",1,&MyPlugin::DockSafety_Callback,this);// docking safety service from zigbee
+  //service는 선언안되는데 subscriber는 선언가능
 
   SwitchSubscriber = n.subscribe("message", 100, &MyPlugin::Switch_callback, this); // Switch Subscriber callback
 
@@ -221,6 +225,7 @@ void MyPlugin::Dock_Callback(bool val)
 
           if(ui_.btn_Dock->isChecked()) //ui에서 정의된 btn_Dock 맴버변수의 isChecked()<bool data>
           {
+
           Service.request.Dock_Do = true;
           is_Dock = true;
   
@@ -288,6 +293,36 @@ void MyPlugin::Approach_Callback(bool val)
 
 }
 
+//---------------------------- Docking Safety function ----------------------------//
+bool toggle_switch=false;
+double delta_buff=0.0;
+int time_sat = 2;
+void MyPlugin::DockSafety_Callback(const std_msgs::Bool &msg){
+toggle_switch=msg.data;
+  
+  
+  if(toggle_switch){
+    
+ 
+      if(ui_.btn_Dock->isChecked())
+      {
+      
+        ui_.btn_Dock->toggle();
+      }
+      /*
+      if(!ui_.btn_Appr->isChecked())
+      {
+      is_Appr=true;
+      
+      }
+      */
+    
+  }
+}
+
+
+
+
 //-----------------------Battery Change with Manipulator---------------------------//
 void MyPlugin::Manipulator_Callback(bool val)
 {
@@ -338,11 +373,10 @@ void MyPlugin::Switch_callback(const std_msgs::UInt16 &isdock)
 
 
 
-
 void MyPlugin::run() {
-  ros::Rate loop_rate(10); //일단주파수는 10정도로 해놓자
+  ros::Rate loop_rate(50); //일단주파수는 10정도로 해놓자
 	while ( ros::ok() ) {
-
+  
 		ros::spinOnce();
 		loop_rate.sleep();
 	}

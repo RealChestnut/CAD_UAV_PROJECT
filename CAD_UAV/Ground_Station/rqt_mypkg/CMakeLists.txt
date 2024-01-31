@@ -36,6 +36,7 @@ add_service_files(
   HoverService.srv
   ApproachService.srv
   ManipulatorService.srv
+  DockSafetyService.srv
 )
 
 generate_messages(

@@ -18,6 +18,7 @@
 #include "rqt_mypkg/ApproachService.h"
 #include "rqt_mypkg/ManipulatorService.h"
 #include <std_msgs/UInt16.h>
+#include <std_msgs/Bool.h>
 
 //#include "rqt_mypkg/FAC_HoverService.h"
 //#include <QKeyEvent> 
@@ -41,6 +42,7 @@ private slots:
     void Land_Callback(bool val);
     void PosCtrl_Callback(bool val);
     void Dock_Callback(bool val);
+    void DockSafety_Callback(const std_msgs::Bool &msg);
     void Switch_callback(const std_msgs::UInt16 &str_msg);
     void run();
 
@@ -59,6 +61,7 @@ private slots:
     ros::ServiceClient ManipulatorClient;
     ros::Subscriber SwitchSubscriber;
     //    ros::ServiceServer HoverServer;
+    ros::Subscriber DockSafetySubscriber;
 };
 
 }  // namespace rqt_mypkg_cpp
